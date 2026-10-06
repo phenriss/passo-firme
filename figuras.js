@@ -135,28 +135,90 @@
     '<rect x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + f1(h) +
     '" rx="' + (rx || 0) + '" fill="' + fill + '"' + (stroke ? ' stroke="' + stroke + '" stroke-width="1.2"' : "") + "/>";
 
+  // segmento "carnudo": largura diminui de r1 (em a) para r2 (em b), pontas arredondadas
+  function seg(a, b, r1, r2, fill, brilho) {
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    let o = '<path d="M' + pt([a[0] + nx * r1, a[1] + ny * r1]) + "L" + pt([b[0] + nx * r2, b[1] + ny * r2]) +
+      "L" + pt([b[0] - nx * r2, b[1] - ny * r2]) + "L" + pt([a[0] - nx * r1, a[1] - ny * r1]) + 'Z" fill="' + fill + '"/>' +
+      circ(a[0], a[1], r1, fill) + circ(b[0], b[1], r2, fill);
+    if (brilho) {
+      const k = 0.38;
+      o += '<line x1="' + f1(a[0] - nx * r1 * k) + '" y1="' + f1(a[1] - ny * r1 * k) + '" x2="' + f1(b[0] - nx * r2 * k) +
+        '" y2="' + f1(b[1] - ny * r2 * k) + '" stroke="#fff" stroke-opacity=".16" stroke-width="' + f1((r1 + r2) * 0.42) +
+        '" stroke-linecap="round"/>';
+    }
+    return o;
+  }
+
+  // tronco com costas, barriga e peito (vista lateral)
+  function tronco(J, fill) {
+    const u = [J.sh[0] - J.hip[0], J.sh[1] - J.hip[1]];
+    const len = Math.sqrt(u[0] * u[0] + u[1] * u[1]) || 1;
+    const ux = u[0] / len, uy = u[1] / len, fx = -uy, fy = ux; // fx,fy aponta para a frente
+    const at = (t, back, front) => [
+      [J.hip[0] + u[0] * t - fx * back, J.hip[1] + u[1] * t - fy * back],
+      [J.hip[0] + u[0] * t + fx * front, J.hip[1] + u[1] * t + fy * front],
+    ];
+    const P = [at(0, 9.5, 9), at(0.35, 8.2, 10.2), at(0.72, 9.4, 10.4), at(1, 6.2, 6.2)];
+    let d = "M" + pt(P[0][0]);
+    for (let i = 1; i < P.length; i++) d += "L" + pt(P[i][0]);
+    for (let i = P.length - 1; i >= 0; i--) d += "L" + pt(P[i][1]);
+    return '<path d="' + d + 'Z" fill="' + fill + '" stroke="' + fill + '" stroke-width="4" stroke-linejoin="round"/>';
+  }
+
+  function mao(wr, ang, cor) {
+    const a = rad(ang);
+    return circ(wr[0] + 1.8 * Math.sin(a), wr[1] + 1.8 * Math.cos(a), 3.7, cor);
+  }
+
+  function tenis(L, frente) {
+    const dx = L.toe[0] - L.heel[0], dy = L.toe[1] - L.heel[1];
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = -dy / len, ny = dx / len; // normal (para baixo no pé plano)
+    const topo = frente ? "#f4f7f6" : "#cdd6d3";
+    const sola = frente ? "#2a3a36" : "#55635e";
+    return (
+      line(L.heel[0], L.heel[1] - 0.5, L.toe[0], L.toe[1] - 0.5, 7.2, topo) +
+      line(L.heel[0] + nx * 2.7, L.heel[1] + ny * 2.7 - 0.5, L.toe[0] + nx * 2.7, L.toe[1] + ny * 2.7 - 0.5, 2.2, sola) +
+      line(L.ank[0], L.ank[1] - 0.5, L.ank[0] + 1.5, L.ank[1] + 3, 6.6, topo)
+    );
+  }
+
   function figura(J, pal) {
     pal = pal || { camisa: C.camisa, camisaF: C.camisaF };
     let s = "";
-    // lado de trás
-    s += pl([J.hip, J.lf.knee, J.lf.ank], 10.5, C.calcaF);
-    s += pl([J.lf.heel, J.lf.toe], 6.5, C.sapatoF);
-    s += pl([J.hip, J.sh], 3, pal.camisaF); // base para o braço de trás sair do ombro
-    s += pl([J.sh, J.af.el, J.af.wr], 8, pal.camisaF);
-    s += circ(J.af.wr[0], J.af.wr[1], 4, C.peleEsc);
-    // tronco
-    s += pl([J.hip, J.sh], 19, pal.camisa);
-    // pescoço e cabeça
-    s += line(J.sh[0], J.sh[1], (J.sh[0] + J.hc[0]) / 2, (J.sh[1] + J.hc[1]) / 2, 6, C.pele);
-    s += circ(J.hc[0] - 2.4, J.hc[1] - 1.4, 9.6, C.cabelo);
-    s += circ(J.hc[0] + 0.8, J.hc[1] + 0.6, 8.6, C.pele);
-    s += circ(J.hc[0] + 8.6, J.hc[1] + 1.8, 2, C.pele);
-    s += circ(J.hc[0] - 1.2, J.hc[1] + 1.4, 1.9, C.peleEsc);
+    // lado de trás (mais escuro/claro para dar profundidade)
+    s += seg(J.hip, J.lf.knee, 7.4, 5.8, C.calcaF) + seg(J.lf.knee, J.lf.ank, 5.8, 4.1, C.calcaF);
+    s += tenis(J.lf, false);
+    s += seg(J.sh, J.af.el, 4.8, 3.9, pal.camisaF) + seg(J.af.el, J.af.wr, 3.5, 2.8, C.peleEsc);
+    s += mao(J.af.wr, J.af.ang, C.peleEsc);
+    // quadril e tronco
+    s += circ(J.hip[0], J.hip[1], 9.2, C.calca);
+    s += tronco(J, pal.camisa);
+    // colarinho, pescoço e cabeça
+    const nk = [(J.sh[0] * 0.35 + J.hc[0] * 0.65), (J.sh[1] * 0.35 + J.hc[1] * 0.65)];
+    s += seg(J.sh, nk, 3.9, 3.2, C.pele);
+    s += circ(J.sh[0] + 0.6, J.sh[1] + 0.6, 4.4, pal.camisa);
+    const hx = J.hc[0], hy = J.hc[1];
+    s += circ(hx - 2.6, hy - 1.3, 9.9, C.cabelo);                 // cabelo (atrás)
+    s += circ(hx - 7.4, hy + 1.2, 4.4, C.cabelo);                 // coque baixo
+    s += '<ellipse cx="' + f1(hx + 1) + '" cy="' + f1(hy + 1) + '" rx="8.1" ry="9" fill="' + C.pele + '"/>';
+    s += '<path d="M' + pt([hx - 7.6, hy - 1.5]) + "Q" + pt([hx - 1, hy - 11.4]) + " " + pt([hx + 7.4, hy - 4.2]) +
+      "Q" + pt([hx + 1, hy - 5.4]) + " " + pt([hx - 7.6, hy + 1.5]) + 'Z" fill="' + C.cabelo + '"/>'; // franja
+    s += circ(hx - 1.6, hy + 1.7, 2.3, C.peleEsc);                // orelha
+    s += circ(hx + 9, hy + 2.3, 1.7, C.pele);                     // nariz
+    s += circ(hx + 4.8, hy - 0.6, 1.05, "#2b2623");               // olho
+    s += line(hx + 3.2, hy - 2.6, hx + 6.8, hy - 2.9, 0.9, "#8d99a0"); // sobrancelha
+    s += '<circle cx="' + f1(hx + 4.9) + '" cy="' + f1(hy - 0.4) + '" r="3" fill="none" stroke="#3b4a54" stroke-width=".7"/>'; // óculos
+    s += line(hx + 4.4, hy + 5.1, hx + 7.4, hy + 5.0, 0.9, "#b0705f"); // boca
+    s += circ(hx + 4, hy + 3.1, 1.8, "#f0a28f").replace('fill="', 'fill-opacity=".35" fill="'); // bochecha
     // lado da frente
-    s += pl([J.hip, J.ln.knee, J.ln.ank], 11, C.calca);
-    s += pl([J.ln.heel, J.ln.toe], 6.8, C.sapato);
-    s += pl([J.sh, J.an.el, J.an.wr], 8.5, pal.camisa);
-    s += circ(J.an.wr[0], J.an.wr[1], 4.3, C.pele);
+    s += seg(J.hip, J.ln.knee, 7.6, 6, C.calca, true) + seg(J.ln.knee, J.ln.ank, 6, 4.3, C.calca, true);
+    s += tenis(J.ln, true);
+    s += seg(J.sh, J.an.el, 5, 4.1, pal.camisa, true) + seg(J.an.el, J.an.wr, 3.7, 3, C.pele);
+    s += mao(J.an.wr, J.an.ang, C.pele);
     return s;
   }
 
@@ -736,7 +798,10 @@
     let o = "";
     if (def.custom) return def.custom(s);
     o += '<rect width="' + W + '" height="' + H + '" fill="' + C.fundo + '"/>';
-    if (def.floor !== false) o += '<rect y="' + G + '" width="' + W + '" height="' + (H - G) + '" fill="' + C.chao + '"/>' + line(0, G, W, G, 1.5, C.linha);
+    if (def.floor !== false) {
+      o += rect(0, G - 7, W, 7, 0, "#dfeae7") + '<rect y="' + G + '" width="' + W + '" height="' + (H - G) + '" fill="' + C.chao + '"/>' +
+        line(0, G, W, G, 1.5, C.linha) + rect(0, G + 1, W, 9, 0, "#dce9e5");
+    }
     let pose;
     if (def.proc) {
       pose = Object.assign({}, BASE, def.base || {}, def.proc(s));
@@ -747,6 +812,7 @@
       const h = def.helper, hp = poseAt(h.ks, s), hJ = solve(hp, h.modes);
       o += '<g transform="translate(' + 2 * h.X + ' 0) scale(-1 1)">' + figura(hJ, { camisa: C.ajuda, camisaF: C.ajudaF }) + "</g>";
     }
+    if (def.floor !== false) o += '<ellipse cx="' + f1(J.hip[0] + 4) + '" cy="' + (G + 2) + '" rx="30" ry="3.6" fill="#000" fill-opacity=".10"/>';
     o += figura(J);
     if (def.front) o += def.front(J, pose, s);
     return o;

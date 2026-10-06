@@ -204,3 +204,4 @@ details.card summary { cursor: pointer; }
   background: #fff; color: var(--verde); font: inherit; font-size: .85rem; font-weight: 700;
 }
 .fig-ctl button:active { background: var(--verde-claro); }
+.fig video { display: block; width: 100%; max-height: 320px; background: #000; }
