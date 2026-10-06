@@ -1,0 +1,196 @@
+:root {
+  --verde: #0f6b5c;
+  --verde-claro: #e3f3ef;
+  --texto: #1b2a27;
+  --suave: #5b6b67;
+  --fundo: #f5f8f7;
+  --borda: #d5e2de;
+  --alerta: #b3261e;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 18px; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--texto);
+  background: var(--fundo);
+  line-height: 1.45;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+header {
+  background: var(--verde);
+  color: #fff;
+  padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+header h1 { margin: 0 0 8px; font-size: 1.25rem; }
+
+.pessoas { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+
+.chip {
+  flex: none;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 22px;
+  border: 2px solid rgba(255, 255, 255, .6);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: .9rem;
+}
+.chip.ativo { background: #fff; color: var(--verde); border-color: #fff; font-weight: 700; }
+.chip.novo { border-style: dashed; }
+
+main { padding: 14px 14px 8px; max-width: 640px; margin: 0 auto; }
+
+.card {
+  background: #fff;
+  border: 1px solid var(--borda);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card h2 { margin: 0 0 6px; font-size: 1.15rem; }
+.card h3, .tit { margin: 16px 0 8px; font-size: 1rem; }
+.card h3:first-child { margin-top: 0; }
+.tit { margin: 18px 4px 8px; }
+.card p { margin: 0 0 10px; }
+.mini { font-size: .82rem; color: var(--suave); margin: 6px 0 0; }
+
+.btn {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--verde);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+}
+.btn.perigo { background: #fff; color: var(--alerta); border: 2px solid var(--alerta); margin-top: 20px; }
+
+.nivel { display: flex; gap: 14px; align-items: center; }
+.selo {
+  flex: none;
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: var(--verde);
+  color: #fff;
+  display: grid; place-items: center;
+  font-size: 1.6rem; font-weight: 800;
+}
+.selo.peq { width: 48px; height: 48px; font-size: 1.1rem; }
+
+.semana { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.dia {
+  text-align: center;
+  padding: 6px 0;
+  border-radius: 10px;
+  background: var(--fundo);
+  font-size: .8rem;
+  color: var(--suave);
+}
+.dia b { display: block; font-size: 1rem; color: var(--texto); }
+.dia.ok { background: var(--verde-claro); }
+.dia.ok b { color: var(--verde); }
+.dia.hoje { outline: 2px solid var(--verde); }
+
+.lista { display: grid; gap: 10px; }
+.ex {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  padding: 14px;
+}
+.ex input { width: 28px; height: 28px; flex: none; margin-top: 2px; accent-color: var(--verde); }
+.ex-corpo { display: grid; gap: 2px; }
+.ex-corpo small { color: var(--verde); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: .7rem; }
+.ex-corpo em { color: var(--suave); font-size: .85rem; }
+.ex.feito { background: var(--verde-claro); }
+.ex.feito strong { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+.form .campo { display: grid; gap: 6px; margin: 10px 0; font-size: .95rem; }
+.form .linha { display: flex; gap: 12px; align-items: center; min-height: 48px; }
+.form .linha input { width: 26px; height: 26px; accent-color: var(--verde); flex: none; }
+select, input[type=number] {
+  font: inherit;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 2px solid var(--borda);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--texto);
+}
+
+.hist { display: flex; gap: 12px; align-items: center; }
+.hist p { margin: 2px 0 0; }
+
+.aviso {
+  font-size: .78rem;
+  color: var(--suave);
+  margin: 14px 4px;
+}
+
+nav {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: #fff;
+  border-top: 1px solid var(--borda);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+nav button {
+  min-height: 64px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: .95rem;
+  color: var(--suave);
+}
+nav button.ativo { color: var(--verde); font-weight: 800; box-shadow: inset 0 3px 0 var(--verde); }
+
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #f2b705; outline-offset: 2px; }
+
+/* --- v2: detalhes dos exercícios, avisos e botões --- */
+.ex { align-items: flex-start; }
+.ex details { flex: 1; min-width: 0; }
+.ex summary { list-style: none; cursor: pointer; display: grid; gap: 2px; padding-right: 4px; }
+.ex summary::-webkit-details-marker { display: none; }
+.ex summary small { color: var(--verde); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: .7rem; }
+.ex summary span { color: var(--suave); font-size: .88rem; }
+.ex summary::after { content: "Ver como fazer ▾"; color: var(--verde); font-size: .8rem; margin-top: 4px; }
+.ex details[open] summary::after { content: "Fechar ▴"; }
+.ex details p { margin: 10px 0 0; font-size: .95rem; }
+.ex details .nota { background: var(--verde-claro); border-radius: 10px; padding: 10px; font-size: .88rem; }
+
+details.card summary { cursor: pointer; }
+.lista-simples { margin: 10px 0 6px; padding-left: 1.2em; }
+.lista-simples li { margin-bottom: 4px; }
+
+.aviso-card { border-color: var(--verde); background: var(--verde-claro); }
+
+.btn.sec { background: #fff; color: var(--verde); border: 2px solid var(--verde); }
+
+.tres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.opcao {
+  min-height: 52px; padding: 6px; border-radius: 12px; border: 2px solid var(--borda);
+  background: #fff; color: var(--texto); font: inherit; font-size: .82rem;
+}
+.opcao.sel { border-color: var(--verde); background: var(--verde-claro); font-weight: 700; color: var(--verde); }
+
+.semana { grid-template-columns: repeat(5, 1fr); }
+.dia b { font-size: .85rem; }
+.nivel h2 { font-size: 1rem; }
