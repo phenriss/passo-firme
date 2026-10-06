@@ -1,5 +1,5 @@
-const CACHE = "passo-firme-v2";
-const ARQUIVOS = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const CACHE = "passo-firme-v3";
+const ARQUIVOS = ["./", "index.html", "style.css", "app.js", "figuras.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARQUIVOS)));

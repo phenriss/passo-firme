@@ -191,7 +191,7 @@ const RITMO_CONVERSA =
 
 function caminhar(pas, c) {
   const s = c.semana;
-  const base = { id: "caminhar", g: "marcha", nome: "Caminhar" };
+  const base = { id: "caminhar", g: "marcha", nome: "Caminhar", fig: pas === "A" ? "caminharA" : pas === "E" ? "caminharE" : "caminhar" };
   switch (pas) {
     case "A":
       return {
@@ -333,7 +333,7 @@ function semanaDoPrograma(inicioStr, data) {
 
 function resolver(ex, ctx) {
   return {
-    id: ex.id, g: ex.g, nome: ex.nome, opcional: !!ex.opcional,
+    id: ex.id, fig: ex.fig || ex.id, g: ex.g, nome: ex.nome, opcional: !!ex.opcional,
     como: val(ex.como, ctx),
     dose: val(ex.dose, ctx),
     nota: ex.nota ? val(ex.nota, ctx) : "",
@@ -485,6 +485,31 @@ function removerPessoa() {
   render();
 }
 
+// exercícios com a ficha aberta (para continuar aberta ao marcar outro item)
+const abertos = new Set();
+
+function fichaExercicio(p, it) {
+  const fig = window.Figuras && Figuras.tem(it.fig) ? Figuras.montar(it.fig, it.nome) : null;
+  const chave = p.id + ":" + it.id;
+  const det = el("details", null,
+    el("summary", null,
+      el("small", null, GRUPOS[it.g] + (it.opcional ? " · opcional" : "")),
+      el("strong", null, it.nome),
+      el("span", null, it.dose)
+    ),
+    fig,
+    el("p", null, it.como),
+    it.nota ? el("p", { class: "nota" }, it.nota) : null
+  );
+  if (abertos.has(chave)) det.open = true;
+  det.addEventListener("toggle", () => {
+    if (det.open) abertos.add(chave); else abertos.delete(chave);
+    if (fig) det.open ? fig.fig.start() : fig.fig.stop();
+  });
+  if (fig && det.open) fig.fig.start();
+  return det;
+}
+
 function viewHoje(p) {
   if (!p.passaporte) {
     return el("div", { class: "card" },
@@ -568,15 +593,7 @@ function viewHoje(p) {
               render();
             },
           }),
-          el("details", null,
-            el("summary", null,
-              el("small", null, GRUPOS[it.g] + (it.opcional ? " · opcional" : "")),
-              el("strong", null, it.nome),
-              el("span", null, it.dose)
-            ),
-            el("p", null, it.como),
-            it.nota ? el("p", { class: "nota" }, it.nota) : null
-          )
+          fichaExercicio(p, it)
         )
       );
     });
@@ -802,7 +819,10 @@ function avisoGeral() {
   );
 }
 
+let ultimaVista = "";
+
 function render() {
+  const yAntes = window.scrollY;
   renderPessoas();
   const main = document.getElementById("conteudo");
   main.replaceChildren();
@@ -823,7 +843,9 @@ function render() {
   const views = { hoje: viewHoje, avaliar: viewAvaliar, ajustes: viewAjustes };
   main.append(views[aba](p));
   if (aba !== "hoje") main.append(avisoGeral());
-  window.scrollTo(0, 0);
+  const vista = aba + ":" + p.id;
+  window.scrollTo(0, vista === ultimaVista ? yAntes : 0);
+  ultimaVista = vista;
 }
 
 if (typeof document !== "undefined") {

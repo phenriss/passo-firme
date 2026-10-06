@@ -194,3 +194,13 @@ details.card summary { cursor: pointer; }
 .semana { grid-template-columns: repeat(5, 1fr); }
 .dia b { font-size: .85rem; }
 .nivel h2 { font-size: 1rem; }
+
+/* --- bonecos animados --- */
+.fig { margin: 10px 0 8px; border: 1px solid var(--borda); border-radius: 12px; overflow: hidden; background: #fff; }
+.fig svg { display: block; width: 100%; height: auto; max-height: 300px; background: #eef6f4; }
+.fig-ctl { display: flex; gap: 8px; padding: 8px; border-top: 1px solid var(--borda); }
+.fig-ctl button {
+  flex: 1; min-height: 44px; border-radius: 10px; border: 2px solid var(--verde);
+  background: #fff; color: var(--verde); font: inherit; font-size: .85rem; font-weight: 700;
+}
+.fig-ctl button:active { background: var(--verde-claro); }
