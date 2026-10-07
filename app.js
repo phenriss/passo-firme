@@ -488,31 +488,13 @@ function removerPessoa() {
 // exercícios com a ficha aberta (para continuar aberta ao marcar outro item)
 const abertos = new Set();
 
-// vídeos reais/gerados: lista os ids disponíveis em videos/lista.json (vazia = só bonecos SVG)
-let VIDEOS = new Set();
-function carregarVideos() {
-  fetch("videos/lista.json").then((r) => (r.ok ? r.json() : [])).then((l) => {
-    if (Array.isArray(l) && l.length) { VIDEOS = new Set(l); render(); }
-  }).catch(() => {});
-}
-
-function montarVideo(id, nome) {
-  const v = el("video", { loop: "", muted: "", playsinline: "", preload: "metadata", controls: "", "aria-label": "Vídeo: " + nome });
-  v.muted = true;
-  v.addEventListener("error", () => { v.dataset.erro = "1"; });
-  const src = "videos/" + id + ".mp4";
-  v.src = src;
-  const caixa = el("div", { class: "fig" }, v);
-  caixa.fig = {
-    start: () => { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); },
-    stop: () => v.pause(),
-  };
-  return caixa;
-}
-
 function fichaExercicio(p, it) {
-  const fig = VIDEOS.has(it.fig) ? montarVideo(it.fig, it.nome)
-    : window.Figuras && Figuras.tem(it.fig) ? Figuras.montar(it.fig, it.nome) : null;
+  const montar2d = () => (window.Figuras && Figuras.tem(it.fig) ? Figuras.montar(it.fig, it.nome) : null);
+  let fig = null;
+  try {
+    fig = window.Figuras3D && Figuras3D.tem(it.fig) ? Figuras3D.montar(it.fig, it.nome, montar2d) : null;
+  } catch (e) { fig = null; }
+  if (!fig) fig = montar2d();
   const chave = p.id + ":" + it.id;
   const det = el("details", null,
     el("summary", null,
@@ -880,7 +862,6 @@ if (typeof document !== "undefined") {
   );
   if (!estado.ativa && estado.pessoas.length) estado.ativa = estado.pessoas[0].id;
   render();
-  carregarVideos();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 

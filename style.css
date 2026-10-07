@@ -204,4 +204,18 @@ details.card summary { cursor: pointer; }
   background: #fff; color: var(--verde); font: inherit; font-size: .85rem; font-weight: 700;
 }
 .fig-ctl button:active { background: var(--verde-claro); }
-.fig video { display: block; width: 100%; max-height: 320px; background: #000; }
+
+/* --- 3D --- */
+.fig3 { position: relative; }
+.fig-seg { display: flex; gap: 0; padding: 8px 8px 0; background: #fff; }
+.fig-seg button {
+  flex: 1; min-height: 40px; border: 2px solid var(--verde); background: #fff; color: var(--verde);
+  font: inherit; font-size: .85rem; font-weight: 700;
+}
+.fig-seg button:first-child { border-radius: 10px 0 0 10px; }
+.fig-seg button:last-child { border-radius: 0 10px 10px 0; border-left: 0; }
+.fig-seg button.sel { background: var(--verde); color: #fff; }
+.fig-tela { position: relative; background: #ede8de; }
+.fig-3d { display: block; width: 100%; height: auto; max-height: 360px; margin: 0 auto; cursor: grab; }
+.fig-rot { position: absolute; top: 8px; left: 0; right: 0; text-align: center; font-size: .72rem; font-weight: 800; color: var(--verde); letter-spacing: .04em; pointer-events: none; }
+.fig3 .fig { margin: 0; border: 0; border-radius: 0; }

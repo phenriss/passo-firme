@@ -41,7 +41,7 @@
     const c = Math.cos(rad(phi)), s = Math.sin(rad(phi));
     const r = (x, y) => [x * c - y * s, x * s + y * c];
     const heel = r(-5, 6), toe = r(11, 6);
-    return { heel, toe, d: Math.max(heel[1], toe[1]) };
+    return { heel, toe, phi, d: Math.max(heel[1], toe[1]) };
   }
 
   // duas juntas: devolve a articulação do meio (cotovelo/joelho) e a ponta alcançada
@@ -94,6 +94,7 @@
         knee, ank,
         heel: [ank[0] + fo.heel[0], ank[1] + fo.heel[1]],
         toe: [ank[0] + fo.toe[0], ank[1] + fo.toe[1]],
+        phi: fo.phi,
       };
     };
     const lean = rad(p.lean);
@@ -113,7 +114,7 @@
     const hd = rad(p.lean + p.head);
     const hc = [sh[0] + (D.neck + D.head) * Math.sin(hd), sh[1] - (D.neck + D.head) * Math.cos(hd)];
     return {
-      hip: [hx, hy], sh, hc, lean: p.lean,
+      hip: [hx, hy], sh, hc, lean: p.lean, hd: p.lean + p.head,
       ln: leg(p.ln, m.ln, fn), lf: leg(p.lf, m.lf, ff),
       an: arm(p.an, m.an), af: arm(p.af, m.af),
     };
@@ -135,90 +136,157 @@
     '<rect x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + f1(h) +
     '" rx="' + (rx || 0) + '" fill="' + fill + '"' + (stroke ? ' stroke="' + stroke + '" stroke-width="1.2"' : "") + "/>";
 
-  // segmento "carnudo": largura diminui de r1 (em a) para r2 (em b), pontas arredondadas
-  function seg(a, b, r1, r2, fill, brilho) {
+  /* ---- anatomia: contornos com volume (coxa, panturrilha, braço...) ---- */
+
+  const LUZ = [0.62, -0.78]; // luz vem da frente e de cima
+  const mixc = (c1, c2, t) => {
+    const p = (c) => [1, 3, 5].map((i) => parseInt(c.substr(i, 2), 16));
+    const a = p(c1), b = p(c2);
+    return "#" + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join("");
+  };
+
+  // membro com perfil de raio variável: rs = [[t, raio], ...] com t de 0 a 1
+  function membro(a, b, rs, fill, o) {
+    o = o || {};
     const dx = b[0] - a[0], dy = b[1] - a[1];
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    const nx = -dy / len, ny = dx / len;
-    let o = '<path d="M' + pt([a[0] + nx * r1, a[1] + ny * r1]) + "L" + pt([b[0] + nx * r2, b[1] + ny * r2]) +
-      "L" + pt([b[0] - nx * r2, b[1] - ny * r2]) + "L" + pt([a[0] - nx * r1, a[1] - ny * r1]) + 'Z" fill="' + fill + '"/>' +
-      circ(a[0], a[1], r1, fill) + circ(b[0], b[1], r2, fill);
-    if (brilho) {
-      const k = 0.38;
-      o += '<line x1="' + f1(a[0] - nx * r1 * k) + '" y1="' + f1(a[1] - ny * r1 * k) + '" x2="' + f1(b[0] - nx * r2 * k) +
-        '" y2="' + f1(b[1] - ny * r2 * k) + '" stroke="#fff" stroke-opacity=".16" stroke-width="' + f1((r1 + r2) * 0.42) +
-        '" stroke-linecap="round"/>';
+    let nx = -dy / len, ny = dx / len;
+    if (nx * LUZ[0] + ny * LUZ[1] < 0) { nx = -nx; ny = -ny; } // n aponta para o lado iluminado
+    const P = (t, k) => {
+      const r = rs.find((q, i) => i === rs.length - 1 || t <= rs[i + 1][0]);
+      let i = 0; while (i < rs.length - 2 && t > rs[i + 1][0]) i++;
+      const [t0, r0] = rs[i], [t1, r1] = rs[Math.min(i + 1, rs.length - 1)];
+      const u = t1 > t0 ? (t - t0) / (t1 - t0) : 0, uu = u * u * (3 - 2 * u);
+      const rr = (r0 + (r1 - r0) * uu) * k;
+      return [a[0] + dx * t + nx * rr, a[1] + dy * t + ny * rr];
+    };
+    const N = 9, ts = [];
+    for (let i = 0; i <= N; i++) ts.push(i / N);
+    const luz = ts.map((t) => P(t, 1)), som = ts.map((t) => P(t, -1));
+    const poly = (pts) => pts.map(pt).join(" ");
+    let out = '<polygon points="' + poly(luz.concat(som.slice().reverse())) + '" fill="' + fill + '" stroke="' + fill + '" stroke-width=".6" stroke-linejoin="round"/>';
+    out += circ(a[0], a[1], rs[0][1], fill) + circ(b[0], b[1], rs[rs.length - 1][1], fill);
+    if (!o.plano) {
+      // sombra do lado oposto à luz e brilho do lado da luz
+      const meio = ts.map((t) => P(t, -0.25));
+      out += '<polygon points="' + poly(meio.concat(som.slice().reverse())) + '" fill="' + mixc(fill, "#000000", 0.32) + '" fill-opacity=".55"/>';
+      const b1 = ts.map((t) => P(t, 0.78)), b2 = ts.map((t) => P(t, 0.3));
+      out += '<polygon points="' + poly(b1.concat(b2.reverse())) + '" fill="#ffffff" fill-opacity="' + (o.brilho == null ? 0.14 : o.brilho) + '"/>';
     }
-    return o;
+    return out;
   }
 
-  // tronco com costas, barriga e peito (vista lateral)
+  const COXA = [[0, 8.4], [0.35, 7.9], [0.8, 6], [1, 5.2]];
+  const CANELA = [[0, 5.2], [0.28, 5.7], [0.7, 4.2], [1, 3.4]];
+  const BRACO = [[0, 5], [0.45, 4.6], [1, 3.9]];
+  const ANTEB = [[0, 3.7], [0.35, 3.8], [1, 2.7]];
+
+  // tronco (vista lateral): costas, peito, barriga, ombro arredondado
   function tronco(J, fill) {
     const u = [J.sh[0] - J.hip[0], J.sh[1] - J.hip[1]];
     const len = Math.sqrt(u[0] * u[0] + u[1] * u[1]) || 1;
-    const ux = u[0] / len, uy = u[1] / len, fx = -uy, fy = ux; // fx,fy aponta para a frente
+    const ux = u[0] / len, uy = u[1] / len, fx = -uy, fy = ux;
     const at = (t, back, front) => [
       [J.hip[0] + u[0] * t - fx * back, J.hip[1] + u[1] * t - fy * back],
       [J.hip[0] + u[0] * t + fx * front, J.hip[1] + u[1] * t + fy * front],
     ];
-    const P = [at(0, 9.5, 9), at(0.35, 8.2, 10.2), at(0.72, 9.4, 10.4), at(1, 6.2, 6.2)];
+    const P = [at(-0.04, 9.2, 8.6), at(0.22, 8.4, 9.4), at(0.45, 8.6, 10.4), at(0.7, 9.8, 11.2), at(0.92, 8.8, 8.2), at(1.02, 5.6, 5.6)];
     let d = "M" + pt(P[0][0]);
     for (let i = 1; i < P.length; i++) d += "L" + pt(P[i][0]);
     for (let i = P.length - 1; i >= 0; i--) d += "L" + pt(P[i][1]);
-    return '<path d="' + d + 'Z" fill="' + fill + '" stroke="' + fill + '" stroke-width="4" stroke-linejoin="round"/>';
+    const sombra = at(0.5, 9.5, -1);
+    let o = '<path d="' + d + 'Z" fill="' + fill + '" stroke="' + fill + '" stroke-width="3.2" stroke-linejoin="round"/>';
+    // sombra nas costas e brilho no peito
+    let d2 = "M" + pt(P[0][0]);
+    for (let i = 1; i < P.length; i++) d2 += "L" + pt(P[i][0]);
+    const back = P.map((q, i) => at([-0.04, 0.22, 0.45, 0.7, 0.92, 1.02][i], 0.0, 0)[0]);
+    for (let i = P.length - 1; i >= 0; i--) d2 += "L" + pt(back[i]);
+    o += '<path d="' + d2 + 'Z" fill="' + mixc(fill, "#000000", 0.3) + '" fill-opacity=".45"/>';
+    const br = [at(0.55, 0, 6.5)[1], at(0.78, 0, 9.4)[1], at(0.86, 0, 7)[1], at(0.78, 0, 4.2)[1], at(0.55, 0, 3)[1]];
+    o += '<polygon points="' + br.map(pt).join(" ") + '" fill="#fff" fill-opacity=".1"/>';
+    // bainha da camisa
+    const h = at(0.04, 9.4, 9.2);
+    o += line(h[0][0], h[0][1], h[1][0], h[1][1], 1.2, mixc(fill, "#000000", 0.35));
+    return o;
   }
 
-  function mao(wr, ang, cor) {
-    const a = rad(ang);
-    return circ(wr[0] + 1.8 * Math.sin(a), wr[1] + 1.8 * Math.cos(a), 3.7, cor);
+  function mao(wr, ang, cor, esc) {
+    return (
+      '<g transform="translate(' + f1(wr[0]) + " " + f1(wr[1]) + ") rotate(" + f1(-ang) + ')">' +
+      '<ellipse cx="0" cy="2.6" rx="3.1" ry="3.6" fill="' + cor + '"/>' +
+      '<ellipse cx="0.6" cy="6.2" rx="2.4" ry="3.1" fill="' + cor + '"/>' +
+      '<ellipse cx="2.9" cy="3" rx="1.25" ry="2.5" transform="rotate(-18 2.9 3)" fill="' + cor + '"/>' +
+      '<path d="M-0.6 6.4 L-0.4 8.8 M1.2 6.6 L1.4 8.9" stroke="' + esc + '" stroke-width=".5" stroke-linecap="round" fill="none"/>' +
+      "</g>"
+    );
   }
 
   function tenis(L, frente) {
-    const dx = L.toe[0] - L.heel[0], dy = L.toe[1] - L.heel[1];
-    const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    const nx = -dy / len, ny = dx / len; // normal (para baixo no pé plano)
-    const topo = frente ? "#f4f7f6" : "#cdd6d3";
-    const sola = frente ? "#2a3a36" : "#55635e";
+    const corpo = frente ? "#f6f8f7" : "#c3ccc9";
+    const detalhe = frente ? "#0f6b5c" : "#4d7d73";
+    const sola = frente ? "#26332f" : "#56635f";
     return (
-      line(L.heel[0], L.heel[1] - 0.5, L.toe[0], L.toe[1] - 0.5, 7.2, topo) +
-      line(L.heel[0] + nx * 2.7, L.heel[1] + ny * 2.7 - 0.5, L.toe[0] + nx * 2.7, L.toe[1] + ny * 2.7 - 0.5, 2.2, sola) +
-      line(L.ank[0], L.ank[1] - 0.5, L.ank[0] + 1.5, L.ank[1] + 3, 6.6, topo)
+      '<g transform="translate(' + f1(L.ank[0]) + " " + f1(L.ank[1]) + ") rotate(" + f1(L.phi) + ')">' +
+      '<path d="M-5.2 -4.5 L-6.2 2 Q-7.6 5.2 -5.2 6.4 L11.6 6.4 Q15.4 6.2 14.8 3.6 Q14 1.2 9.2 0.2 L3.8 -1.4 L3.2 -4.5 Z" fill="' + corpo + '"/>' +
+      '<path d="M-6.6 5 L14.9 5 L15 6.9 Q14.6 7.8 12 7.8 L-5.4 7.8 Q-7.4 7.4 -6.6 5 Z" fill="' + sola + '"/>' +
+      '<path d="M3.8 -1.4 L8.6 0.6 M2 1 L6.8 2.6 M0 3 L4.8 4.4" stroke="' + detalhe + '" stroke-width=".9" stroke-linecap="round" fill="none"/>' +
+      "</g>"
+    );
+  }
+
+  // cabeça de perfil, em coordenadas locais (olhando para a direita)
+  function cabeca(J) {
+    return (
+      '<g transform="translate(' + f1(J.hc[0]) + " " + f1(J.hc[1]) + ") rotate(" + f1(J.hd) + ')">' +
+      // cabelo de trás + coque
+      '<path d="M-7.5 -2 C-10 -8 -3 -12.4 4 -10.2 C-1 -8 -5 -4 -4 4 C-5.5 6 -8 4 -7.5 -2 Z" fill="' + mixc(C.cabelo, "#000000", 0.18) + '"/>' +
+      '<circle cx="-9.2" cy="2.4" r="4.4" fill="' + mixc(C.cabelo, "#000000", 0.12) + '"/>' +
+      // rosto de perfil
+      '<path d="M-6 -4 C-6 -9.5 1 -10.6 4.2 -9 C7 -7.6 7.8 -5.2 7.7 -3.2 L8.2 -1 L10.7 2.2 L8.6 3.5 L8.7 4.7 L8.2 5.9 L7.6 7.7 L5.6 9.3 C2 10.6 -3 9.6 -5.6 6 C-7.4 2.6 -7 -1 -6 -4 Z" fill="' + C.pele + '"/>' +
+      '<path d="M2 9.8 C-2 10.5 -5.4 8 -6 4 C-3 8 1 8 5.6 9.3 Z" fill="' + C.peleEsc + '" fill-opacity=".5"/>' +
+      // cabelo da frente
+      '<path d="M-6.4 -3 C-7 -9.8 2.2 -11.8 6.6 -7.4 C4.8 -7.6 2.4 -6.6 0.6 -4.4 C-1.4 -6.4 -4 -6 -6.4 -3 Z" fill="' + C.cabelo + '"/>' +
+      '<path d="M-2 -9.4 Q1.5 -9.6 4 -8.4" stroke="#fff" stroke-opacity=".35" stroke-width="1" fill="none" stroke-linecap="round"/>' +
+      // orelha
+      '<ellipse cx="-1.4" cy="1.8" rx="1.9" ry="2.7" fill="' + C.peleEsc + '"/><path d="M-1.8 0.8 Q-0.8 1.6 -1.6 3" stroke="#b78b69" stroke-width=".5" fill="none"/>' +
+      // sobrancelha, olho, óculos
+      '<path d="M3 -3.5 Q5 -4.5 7 -3.7" stroke="#8d99a0" stroke-width="1" stroke-linecap="round" fill="none"/>' +
+      '<ellipse cx="5" cy="-1.5" rx="1.25" ry="0.95" fill="#fff"/><circle cx="5.4" cy="-1.5" r=".8" fill="#2b2623"/>' +
+      '<path d="M3.7 -2.4 Q5 -3 6.5 -2.4" stroke="#b78b69" stroke-width=".5" fill="none"/>' +
+      '<rect x="2.4" y="-4" width="6" height="5" rx="2.2" fill="#9fd3e6" fill-opacity=".22" stroke="#3b4a54" stroke-width=".7"/>' +
+      '<path d="M2.4 -2 L-2 0.8" stroke="#3b4a54" stroke-width=".6" fill="none"/>' +
+      // bochecha e boca
+      '<circle cx="4" cy="3.4" r="2" fill="#f2a08e" fill-opacity=".32"/>' +
+      '<path d="M5.8 5.9 Q7.4 6.5 8.4 5.8" stroke="#a8584b" stroke-width=".9" stroke-linecap="round" fill="none"/>' +
+      '<path d="M8.2 3.4 L9.4 3.2" stroke="#c28f74" stroke-width=".5" fill="none"/>' +
+      "</g>"
     );
   }
 
   function figura(J, pal) {
     pal = pal || { camisa: C.camisa, camisaF: C.camisaF };
+    const manga = (a, b, c) => b;
     let s = "";
-    // lado de trás (mais escuro/claro para dar profundidade)
-    s += seg(J.hip, J.lf.knee, 7.4, 5.8, C.calcaF) + seg(J.lf.knee, J.lf.ank, 5.8, 4.1, C.calcaF);
+    // --- lado de trás (mais escuro) ---
+    s += membro(J.hip, J.lf.knee, COXA, C.calcaF, { brilho: 0.06 }) + membro(J.lf.knee, J.lf.ank, CANELA, C.calcaF, { brilho: 0.06 });
     s += tenis(J.lf, false);
-    s += seg(J.sh, J.af.el, 4.8, 3.9, pal.camisaF) + seg(J.af.el, J.af.wr, 3.5, 2.8, C.peleEsc);
-    s += mao(J.af.wr, J.af.ang, C.peleEsc);
-    // quadril e tronco
-    s += circ(J.hip[0], J.hip[1], 9.2, C.calca);
+    s += membro(J.af.el, J.af.wr, ANTEB, C.peleEsc, { plano: true });
+    s += mao(J.af.wr, J.af.ang, C.peleEsc, "#b78b69");
+    s += membro(J.sh, J.af.el, BRACO, pal.camisaF, { brilho: 0.08 });
+    // --- quadril, tronco, pescoço ---
+    s += circ(J.hip[0], J.hip[1], 9, C.calca);
     s += tronco(J, pal.camisa);
-    // colarinho, pescoço e cabeça
-    const nk = [(J.sh[0] * 0.35 + J.hc[0] * 0.65), (J.sh[1] * 0.35 + J.hc[1] * 0.65)];
-    s += seg(J.sh, nk, 3.9, 3.2, C.pele);
-    s += circ(J.sh[0] + 0.6, J.sh[1] + 0.6, 4.4, pal.camisa);
-    const hx = J.hc[0], hy = J.hc[1];
-    s += circ(hx - 2.6, hy - 1.3, 9.9, C.cabelo);                 // cabelo (atrás)
-    s += circ(hx - 7.4, hy + 1.2, 4.4, C.cabelo);                 // coque baixo
-    s += '<ellipse cx="' + f1(hx + 1) + '" cy="' + f1(hy + 1) + '" rx="8.1" ry="9" fill="' + C.pele + '"/>';
-    s += '<path d="M' + pt([hx - 7.6, hy - 1.5]) + "Q" + pt([hx - 1, hy - 11.4]) + " " + pt([hx + 7.4, hy - 4.2]) +
-      "Q" + pt([hx + 1, hy - 5.4]) + " " + pt([hx - 7.6, hy + 1.5]) + 'Z" fill="' + C.cabelo + '"/>'; // franja
-    s += circ(hx - 1.6, hy + 1.7, 2.3, C.peleEsc);                // orelha
-    s += circ(hx + 9, hy + 2.3, 1.7, C.pele);                     // nariz
-    s += circ(hx + 4.8, hy - 0.6, 1.05, "#2b2623");               // olho
-    s += line(hx + 3.2, hy - 2.6, hx + 6.8, hy - 2.9, 0.9, "#8d99a0"); // sobrancelha
-    s += '<circle cx="' + f1(hx + 4.9) + '" cy="' + f1(hy - 0.4) + '" r="3" fill="none" stroke="#3b4a54" stroke-width=".7"/>'; // óculos
-    s += line(hx + 4.4, hy + 5.1, hx + 7.4, hy + 5.0, 0.9, "#b0705f"); // boca
-    s += circ(hx + 4, hy + 3.1, 1.8, "#f0a28f").replace('fill="', 'fill-opacity=".35" fill="'); // bochecha
-    // lado da frente
-    s += seg(J.hip, J.ln.knee, 7.6, 6, C.calca, true) + seg(J.ln.knee, J.ln.ank, 6, 4.3, C.calca, true);
+    const nk = [J.sh[0] * 0.3 + J.hc[0] * 0.7, J.sh[1] * 0.3 + J.hc[1] * 0.7];
+    s += membro(J.sh, nk, [[0, 4.2], [1, 3.4]], C.pele);
+    s += '<path d="M' + pt([J.sh[0] - 2, J.sh[1] + 1]) + " Q" + pt([J.sh[0] + 4, J.sh[1] + 5]) + " " + pt([J.sh[0] + 6.5, J.sh[1] - 1.5]) + '" stroke="' + mixc(pal.camisa, "#000000", 0.25) + '" stroke-width="1.4" fill="none" stroke-linecap="round"/>';
+    s += cabeca(J);
+    // --- lado da frente ---
+    s += membro(J.hip, J.ln.knee, COXA, C.calca) + membro(J.ln.knee, J.ln.ank, CANELA, C.calca);
+    s += line(J.ln.knee[0], J.ln.knee[1], J.ln.knee[0] + 1.5 * Math.sign(J.ln.ank[0] - J.ln.knee[0] || 1), J.ln.knee[1] + 1, 0.1, "none");
     s += tenis(J.ln, true);
-    s += seg(J.sh, J.an.el, 5, 4.1, pal.camisa, true) + seg(J.an.el, J.an.wr, 3.7, 3, C.pele);
-    s += mao(J.an.wr, J.an.ang, C.pele);
+    s += membro(J.an.el, J.an.wr, ANTEB, C.pele, { plano: true });
+    s += mao(J.an.wr, J.an.ang, C.pele, "#b78b69");
+    s += membro(J.sh, J.an.el, BRACO, pal.camisa);
     return s;
   }
 
@@ -490,6 +558,7 @@
     };
     if (o.front) def.front = o.front;
     def.A = A;
+    def.cyc = cyc;
     return def;
   }
 
@@ -793,14 +862,35 @@
     return ks[ks.length - 1].p;
   }
 
-  function cena(id, s) {
+  let UID = 0;
+
+  function ambiente(uid) {
+    const p = "pf" + uid;
+    return (
+      "<defs>" +
+      '<linearGradient id="' + p + 'p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6f2ea"/><stop offset="1" stop-color="#e6dfd2"/></linearGradient>' +
+      '<linearGradient id="' + p + 'c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cdbda3"/><stop offset="1" stop-color="#b9a688"/></linearGradient>' +
+      '<radialGradient id="' + p + 's"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="' + p + 'l" cx=".72" cy=".25" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>' +
+      "</defs>"
+    );
+  }
+
+  function cena(id, s, uid) {
     const def = normaliza(EX[id]);
+    const p = "pf" + uid;
     let o = "";
     if (def.custom) return def.custom(s);
-    o += '<rect width="' + W + '" height="' + H + '" fill="' + C.fundo + '"/>';
+    o += ambiente(uid);
+    // parede com luz suave
+    o += '<rect x="-40" width="' + (W + 80) + '" height="' + H + '" fill="url(#' + p + 'p)"/>';
+    o += '<rect x="-40" width="' + (W + 80) + '" height="' + H + '" fill="url(#' + p + 'l)"/>';
     if (def.floor !== false) {
-      o += rect(0, G - 7, W, 7, 0, "#dfeae7") + '<rect y="' + G + '" width="' + W + '" height="' + (H - G) + '" fill="' + C.chao + '"/>' +
-        line(0, G, W, G, 1.5, C.linha) + rect(0, G + 1, W, 9, 0, "#dce9e5");
+      // rodapé e piso de madeira clara
+      o += rect(-40, G - 8, W + 80, 8, 0, "#fbf9f4") + line(-40, G - 8, W + 40, G - 8, 0.8, "#d8d0c0");
+      o += '<rect x="-40" y="' + G + '" width="' + (W + 80) + '" height="' + (H - G + 20) + '" fill="url(#' + p + 'c)"/>';
+      o += line(-40, G, W + 40, G, 1.2, "#a8946f");
+      for (let k = 1; k < 4; k++) o += line(-40, G + k * 6.5, W + 40, G + k * 6.5, 0.6, "#a8946f").replace("/>", ' stroke-opacity=".45"/>');
     }
     let pose;
     if (def.proc) {
@@ -812,7 +902,7 @@
       const h = def.helper, hp = poseAt(h.ks, s), hJ = solve(hp, h.modes);
       o += '<g transform="translate(' + 2 * h.X + ' 0) scale(-1 1)">' + figura(hJ, { camisa: C.ajuda, camisaF: C.ajudaF }) + "</g>";
     }
-    if (def.floor !== false) o += '<ellipse cx="' + f1(J.hip[0] + 4) + '" cy="' + (G + 2) + '" rx="30" ry="3.6" fill="#000" fill-opacity=".10"/>';
+    if (def.floor !== false) o += '<ellipse cx="' + f1(J.hip[0] + 4) + '" cy="' + (G + 3) + '" rx="34" ry="4.6" fill="url(#' + p + 's)"/>';
     o += figura(J);
     if (def.front) o += def.front(J, pose, s);
     return o;
@@ -821,7 +911,7 @@
   const SVGNS = "http://www.w3.org/2000/svg";
 
   function svgFechado(id, s, titulo) {
-    return '<svg xmlns="' + SVGNS + '" viewBox="' + vbDe(id) + '" role="img" aria-label="' + (titulo || id) + '">' + cena(id, s) + "</svg>";
+    return '<svg xmlns="' + SVGNS + '" viewBox="' + vbDe(id) + '" role="img" aria-label="' + (titulo || id) + '">' + cena(id, s, ++UID) + "</svg>";
   }
 
   const ativos = [];
@@ -856,9 +946,10 @@
     wrap.append(svg);
 
     const reduz = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const uid = ++UID;
     const a = { svg, t: 0, vel: 1, rodando: false, ult: null };
     const pos = () => ((a.t / def.T) % 1 + 1) % 1;
-    a.pinta = () => { svg.innerHTML = cena(id, pos()); };
+    a.pinta = () => { svg.innerHTML = cena(id, pos(), uid); };
     a.pinta();
     a.t = (def.poster == null ? 0.3 : def.poster) * def.T;
     a.pinta();
@@ -892,7 +983,22 @@
     return wrap;
   }
 
+  // dados da pose para o motor 3D (juntas em 2D, vista lateral)
+  function dados(id, s) {
+    const def = normaliza(EX[id]);
+    const pose = def.proc ? Object.assign({}, BASE, def.base || {}, def.proc(s)) : poseAt(def.ks, s);
+    const J = solve(pose, def.modes);
+    let H = null;
+    if (def.helper) H = solve(poseAt(def.helper.ks, s), def.helper.modes);
+    return {
+      J, H, pose, helperX: def.helper ? def.helper.X : null,
+      scroll: def.A ? s * (def.cyc || 1) * def.A : 0, A: def.A || 0,
+      floor: def.floor !== false, T: def.T, G, CX, VB: VB[id] || [0, 0, W, H],
+    };
+  }
+
   root.Figuras = {
+    dados,
     tem: (id) => !!EX[id],
     montar,
     quadro: svgFechado,
